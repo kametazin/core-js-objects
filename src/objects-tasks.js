@@ -18,7 +18,8 @@
  *    shallowCopy({}) => {}
  */
 function shallowCopy(obj) {
-  return { ...obj };
+  const newObj = { ...obj };
+  return newObj;
 }
 
 /**
@@ -387,87 +388,83 @@ function group(array, keySelector, valueSelector) {
  *
  *  For more examples see unit tests.
  */
-
-class CssSelector {
-  constructor() {
-    this.selectorParts = {
-      element: '',
-      id: '',
-      classes: [],
-      attributes: [],
-      pseudoClasses: [],
-      pseudoElement: '',
-    };
-  }
+const cssSelectorBuilder = {
+  selectors: [],
 
   element(value) {
-    this.selectorParts.element = value;
-    return this;
-  }
+    this.checkDuplicate('element');
+    this.checkOrder('element');
+    return this.newInstance(this.selectors.concat(value));
+  },
 
   id(value) {
-    this.selectorParts.id = `#${value}`;
-    return this;
-  }
+    this.checkDuplicate('id');
+    this.checkOrder('id');
+    return this.newInstance(this.selectors.concat(`#${value}`));
+  },
 
   class(value) {
-    this.selectorParts.classes.push(`.${value}`);
-    return this;
-  }
+    this.checkOrder('class');
+    return this.newInstance(this.selectors.concat(`.${value}`));
+  },
 
   attr(value) {
-    this.selectorParts.attributes.push(`[${value}]`);
-    return this;
-  }
+    this.checkOrder('attr');
+    return this.newInstance(this.selectors.concat(`[${value}]`));
+  },
 
   pseudoClass(value) {
-    this.selectorParts.pseudoClasses.push(`:${value}`);
-    return this;
-  }
+    this.checkOrder('pseudoClass');
+    return this.newInstance(this.selectors.concat(`:${value}`));
+  },
 
   pseudoElement(value) {
-    this.selectorParts.pseudoElement = `::${value}`;
-    return this;
-  }
+    this.checkOrder('pseudoElement');
+    this.checkDuplicate('pseudoElement');
+    return this.newInstance(this.selectors.concat(`::${value}`));
+  },
 
   combine(selector1, combinator, selector2) {
-    this.result += `${selector1.stringify()} ${combinator} ${selector2.stringify()}`;
-    return this;
-  }
+    return this.newInstance(
+      this.selectors.concat(
+        `${selector1.stringify()} ${combinator} ${selector2.stringify()}`
+      )
+    );
+  },
 
   stringify() {
-    const parts = Object.values(this.selectorParts).join('');
-    return parts;
-  }
-}
-
-const cssSelectorBuilder = {
-  element(value) {
-    return new CssSelector().element(value);
+    return this.selectors.join('');
   },
 
-  id(value) {
-    return new CssSelector().id(value);
+  newInstance(selectors) {
+    const instance = Object.create(cssSelectorBuilder);
+    instance.selectors = selectors;
+    return instance;
   },
-
-  class(value) {
-    return new CssSelector().class(value);
+  checkDuplicate(type) {
+    if (this.selectors.some((selector) => selector.startsWith(`${type}`))) {
+      throw new Error(
+        `${type}, id, and pseudo-element should not occur more than one time inside the selector`
+      );
+    }
   },
-
-  attr(value) {
-    return new CssSelector().attr(value);
-  },
-
-  pseudoClass(value) {
-    return new CssSelector().pseudoClass(value);
-  },
-
-  pseudoElement(value) {
-    return new CssSelector().pseudoElement(value);
-  },
-
-  combine(selector1, combinator, selector2) {
-    return new CssSelector().combine(selector1, combinator, selector2);
+  checkOrder(type) {
+    const order = [
+      'element',
+      'id',
+      'class',
+      'attr',
+      'pseudoClass',
+      'pseudoElement',
+    ];
+    const currentIdx = order.indexOf(type);
+    for (let i = 0; i < currentIdx; i += 1) {
+      if (
+        this.selectors.some((selector) => selector.startsWith(`${order[i]}`))
+      ) {
+        throw new Error(`Selector should not occur after ${order[i]}`);
+      }
+    }
   },
 };
 
